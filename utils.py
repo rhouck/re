@@ -3,6 +3,8 @@ import datetime
 import pandas as pd
 import Quandl
 import numpy as np
+import statsmodels.api as sm
+
 
 ## load quandl meta data
 #
@@ -57,7 +59,7 @@ def get_cum_return(df):
     df = df.cumprod()  
     return df
 
-def get_forward_return(df, periods=24):    
+def get_forward_return(df, periods):    
     df = ((df.shift(-periods) / df) - 1.).dropna(how='all')
     # drop outliers - greater than 3 std moves
     #
@@ -67,10 +69,10 @@ def get_forward_return(df, periods=24):
     df.drop(outliers, axis=1, inplace=True)    
     return df
 
-def lead_lag_corr(df_levels, df_returns):
+def lead_lag_corr(df_levels, df_returns, rng=range(-52,150,4)):
     data = []
-    for i in reversed(range(-36,36,2)):
-        rec_ret = (df_levels.shift(i) / df_levels - 1.).dropna(how='all')
+    for i in reversed(rng):
+        rec_ret = (df_levels / df_levels.shift(i) - 1.).dropna(how='all')
         df_aligned = pd.concat([rec_ret.stack().to_frame(), df_returns.stack().to_frame()], axis=1).dropna()
         df_aligned.columns = ['past', 'fwd']
         c = df_aligned.corr().values[0,1]
@@ -79,3 +81,19 @@ def lead_lag_corr(df_levels, df_returns):
     corr = pd.DataFrame(data)
     corr.set_index('per', inplace=True)
     return corr
+
+def simple_ols(X, y, fit_intercept=True): 
+    if fit_intercept:
+        X = sm.add_constant(X)
+    model = sm.OLS(y,X)
+    results = model.fit()
+    
+    try:
+        f_test = results.f_test(np.identity(2))
+    except:
+        f_test = None
+        
+    return {'params': results.params,
+            'tvalues': results.tvalues,
+            'f_test': f_test
+           }
