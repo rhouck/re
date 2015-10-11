@@ -1,9 +1,15 @@
 import datetime
+import os
+import time
 
 import pandas as pd
 import Quandl
 import numpy as np
 import statsmodels.api as sm
+from pykalman import KalmanFilter
+
+
+QUANDL_API_KEY = '11Uh5euqzE625yn6n5QG'
 
 
 ## load quandl meta data
@@ -39,8 +45,101 @@ def load_indicators():
     return indicator
 
 
+## quandl data
+#
+
+def scrape_quandl(area, indicator):
+    """collects housing data from quanl zill api if available and not already collected - CA data only"""
+    
+    # check file exists
+    fn = 'data/api_data/{0}_{1}_ca.csv'.format(area.lower(), indicator.lower())
+    if os.path.isfile(fn):
+        print 'this data set is already collected'
+        return
+    
+    # validate params
+    areas = ('counties', 'cities', 'hoods')
+    if area not in areas:
+        raise ValueError('area must be one of the following values: {0}'.format(areas))
+    
+    indicators = load_indicators()
+    if indicator.upper() not in indicators.ix[:,1].values:
+        raise ValueError('invalid inidicator value: {0}'.format(indicator.upper()))
+    
+    print 'lets scrape {0} / {1}'.format(area, indicator)
+    
+    if area == 'counties':
+        codes = load_counties()
+        area_api_category = 'CO'
+    elif area == 'cities':
+        codes = load_cities()
+        area_api_category = 'C'
+    else:
+        codes = load_hoods()
+        area_api_category = 'N'
+        
+    df_master = pd.DataFrame()
+    for i in codes[codes.state=='CA'].code.values:    
+        try:
+            q =  "ZILL/{0}{1}_{2}".format(area_api_category, i, indicator.upper())
+            df = Quandl.get(q, authtoken=QUANDL_API_KEY)
+            df.columns = [i,]
+            df_master = pd.concat([df_master, df], axis=1)
+            time.sleep(.06)
+        except Exception as err:
+            if str(err) == 'Error Downloading! HTTP Error 429: Too Many Requests':
+                print err
+                return
+            print('no data for code:\t{0}'.format(i))
+            
+    
+    if df_master.shape[0]:
+        df_master.to_csv(fn)
+    
+    print 'done'
+
+def load_quandl_data(area, indicator):
+    fn = 'data/api_data/{0}_{1}_ca.csv'.format(area.lower(), indicator.lower())
+    if not os.path.isfile(fn):
+        print 'this data set has not been collected'
+        return
+    
+    df = pd.read_csv(fn, parse_dates='Date', index_col='Date')
+    df = df.resample('d', fill_method='bfill').resample('m')
+    
+    return df
+ 
+## general tools
+#
+
+def stack_and_align(df1, df2, cols=None):
+    
+    def format(df):
+        try:
+            df.index.levels
+        except:
+            df = df.stack()
+        if isinstance(df, pd.Series):
+            df = df.to_frame()
+        return df
+
+
+    df = pd.concat([format(df1), format(df2)], axis=1).dropna()
+    if cols:
+        df.columns = cols
+    return df
+
+def get_row_percentile(df):
+    df = df.unstack().rank(axis=1)
+    df = df.div(df.max(axis=1), axis='rows')
+    return df.stack()
+
+
 ## general empirics
 # 
+
+def ts_score(df):
+    return  (df - df.mean()) / df.std()
 
 def get_z_scores(df):
     m = df.stack().mean()
@@ -73,8 +172,7 @@ def lead_lag_corr(df_levels, df_returns, rng=range(-52,150,4)):
     data = []
     for i in reversed(rng):
         rec_ret = (df_levels / df_levels.shift(i) - 1.).dropna(how='all')
-        df_aligned = pd.concat([rec_ret.stack().to_frame(), df_returns.stack().to_frame()], axis=1).dropna()
-        df_aligned.columns = ['past', 'fwd']
+        df_aligned = stack_and_align(rec_ret, df_returns, cols=['past', 'fwd'])
         c = df_aligned.corr().values[0,1]
         dif = (df_aligned['fwd'] - df_aligned['past']).mean()
         data.append({'per': i, 'corr': c, 'dif': dif})
@@ -87,7 +185,6 @@ def simple_ols(X, y, fit_intercept=True):
         X = sm.add_constant(X)
     model = sm.OLS(y,X)
     results = model.fit()
-    
     try:
         f_test = results.f_test(np.identity(2))
     except:
@@ -95,5 +192,27 @@ def simple_ols(X, y, fit_intercept=True):
         
     return {'params': results.params,
             'tvalues': results.tvalues,
+            #'t_test': results.t_test([0,0]),
             'f_test': f_test
            }
+
+def  kalman_ma(df, transition_covariance=.01):
+    
+    df_new = pd.DataFrame()
+    
+    # Construct a Kalman filter
+    kf = KalmanFilter(transition_matrices = [1],
+                      observation_matrices = [1],
+                      initial_state_mean = 0,
+                      initial_state_covariance = 1,
+                      observation_covariance=1,
+                      transition_covariance=transition_covariance)
+
+    for c in df.columns:
+        # Use the observed values of the price to get a rolling mean
+        state_means, _ = kf.filter(df[c].values)
+        df_new[c] = state_means[:,0]
+    
+    df_new.index = df.index
+    
+    return df_new
