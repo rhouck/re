@@ -112,8 +112,8 @@ def load_quandl_data(area, indicator):
 ## general tools
 #
 
-def stack_and_align(df1, df2, cols=None):
-    
+def stack_and_align(dfs, cols=None):
+
     def format(df):
         try:
             df.index.levels
@@ -123,10 +123,11 @@ def stack_and_align(df1, df2, cols=None):
             df = df.to_frame()
         return df
 
+    df = pd.concat([format(df) for df in dfs], axis=1).dropna()
 
-    df = pd.concat([format(df1), format(df2)], axis=1).dropna()
     if cols:
         df.columns = cols
+    
     return df
 
 def get_row_percentile(df):
@@ -138,6 +139,28 @@ def get_row_percentile(df):
 ## general empirics
 # 
 
+def gen_quintile_data(df, rank_col, display_col, agg='sum'):
+    
+    rank = get_row_percentile(df[rank_col])
+    rank.name = 'rank'
+    
+    df = stack_and_align([df, rank])
+    
+    quint = pd.DataFrame()
+    for i in range(2, 12, 2):
+        i = i/10.
+        
+        d = df[(df['rank']>(i-.2)) & (df['rank']<i)][display_col].unstack()
+        
+        if agg=='sum':
+            d = d.sum(axis=1)
+        elif agg=='mean':
+            d = d.mean(axis=1)
+        
+        quint[i] = d
+
+    return quint
+
 def ts_score(df):
     return  (df - df.mean()) / df.std()
 
@@ -147,15 +170,24 @@ def get_z_scores(df):
     z = (df - m) / std
     return z
 
-def get_cum_return(df):  
+def z_score_to_value(z_scores, values):
+    m = values.mean()
+    std = values.std()
+    return (z_scores * std) + m
+
+def get_cum_return(df, outlier_threshold=3):  
+    df = df.applymap(lambda x: x + 1.)
     df = (df / df.shift())#.replace(np.nan, 0)
-    # drop outliers - greater than 3 std moves
+    
+    # drop outliers - greater than 'outlier_threshold' std moves
     #
     z = get_z_scores(df)
     z_max = z.applymap(lambda x: abs(x)).max()
-    outliers = z_max[z_max > 3].index
+    outliers = z_max[z_max > outlier_threshold].index
     df.drop(outliers, axis=1, inplace=True) 
+    
     df = df.cumprod()  
+    df = df.applymap(lambda x: x - 1.)
     return df
 
 def get_forward_return(df, periods):    
