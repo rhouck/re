@@ -7,6 +7,7 @@ import Quandl
 import numpy as np
 import statsmodels.api as sm
 from pykalman import KalmanFilter
+from sklearn import linear_model as lm
 
 
 QUANDL_API_KEY = '11Uh5euqzE625yn6n5QG'
@@ -139,6 +140,21 @@ def get_row_percentile(df):
 ## general empirics
 # 
 
+def get_betas(df, s, per=1):
+    df = (df / df.shift(per)).dropna(how='all')
+    s = (s / s.shift(per)).dropna(how='all')
+    clf = lm.LinearRegression(fit_intercept=False)
+    
+    betas = []
+    for c in df.columns:
+        d = pd.DataFrame({'X': df[c], 'y': s.values}).dropna() 
+        try:
+            clf.fit(d[['X']], d['y'])
+            betas.append({'model': c, 'beta':  clf.coef_[0]})
+        except:
+            pass
+    return pd.DataFrame(betas).set_index('model')['beta']
+
 def gen_quintile_data(df, rank_col, display_col, agg='sum'):
     
     rank = get_row_percentile(df[rank_col])
@@ -228,7 +244,7 @@ def simple_ols(X, y, fit_intercept=True):
             'f_test': f_test
            }
 
-def  kalman_ma(df, transition_covariance=.01):
+def kalman_ma(df, transition_covariance=.01):
     
     df_new = pd.DataFrame()
     
