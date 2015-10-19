@@ -15,6 +15,16 @@ QUANDL_API_KEY = '11Uh5euqzE625yn6n5QG'
 
 ## load quandl meta data
 #
+def load_regions():
+    df = pd.read_csv('data/metro_codes.csv', delimiter='|', dtype='str')
+    df.columns = df.columns.str.lower()
+    df = df.ix[:0] # only load region representing entire us
+    return df
+
+def load_states():
+    df = pd.read_csv('data/state_codes.csv', delimiter='|', dtype='str')
+    df.columns = df.columns.str.lower()
+    return df
 
 def load_counties():
     df = pd.read_csv('data/county_codes.csv', delimiter='|', dtype='str')
@@ -22,23 +32,26 @@ def load_counties():
     df = df[df.ix[:,0].map(lambda x: True if len(x.split(','))==len(main_cols) else False)]
     df = pd.concat([df.ix[:,0].apply(lambda x: pd.Series(x.split(','))), df.ix[:,1]], axis=1)
     df.columns = ['county', 'state', 'region',  'code']
+    df = df[df.state=='CA']
     return df
 
 def load_cities():
-    cities = pd.read_csv('data/city_codes.csv', delimiter='|', dtype='str')
-    main_cols = cities.columns[0].split(',')
-    cities = cities[cities.ix[:,0].map(lambda x: True if len(x.split(','))==len(main_cols) else False)]
-    cities = pd.concat([cities.ix[:,0].apply(lambda x: pd.Series(x.split(','))), cities.ix[:,1]], axis=1)
-    cities.columns = ['city', 'state',  'region', 'county', 'code']
-    return cities
+    df = pd.read_csv('data/city_codes.csv', delimiter='|', dtype='str')
+    main_cols = df.columns[0].split(',')
+    df = df[df.ix[:,0].map(lambda x: True if len(x.split(','))==len(main_cols) else False)]
+    df = pd.concat([df.ix[:,0].apply(lambda x: pd.Series(x.split(','))), df.ix[:,1]], axis=1)
+    df.columns = ['city', 'state',  'region', 'county', 'code']
+    df = df[df.state=='CA']
+    return df
 
 def load_hoods():
-    hoods = pd.read_csv('data/hood_codes.csv', delimiter='|', dtype='str')
-    main_cols = hoods.columns[0].split(',')
-    hoods = hoods[hoods.ix[:,0].map(lambda x: True if len(x.split(','))==len(main_cols) else False)]
-    hoods = pd.concat([hoods.ix[:,0].apply(lambda x: pd.Series(x.split(','))), hoods.ix[:,1]], axis=1)
-    hoods.columns = ['hood', 'city', 'state', 'region', 'county', 'code']
-    return hoods
+    df = pd.read_csv('data/hood_codes.csv', delimiter='|', dtype='str')
+    main_cols = df.columns[0].split(',')
+    df = df[df.ix[:,0].map(lambda x: True if len(x.split(','))==len(main_cols) else False)]
+    df = pd.concat([df.ix[:,0].apply(lambda x: pd.Series(x.split(','))), df.ix[:,1]], axis=1)
+    df.columns = ['hood', 'city', 'state', 'region', 'county', 'code']
+    df = df[df.state=='CA']
+    return df
 
 def load_indicators():
     indicator = pd.read_csv('data/indicator_codes.csv')
@@ -50,16 +63,16 @@ def load_indicators():
 #
 
 def scrape_quandl(area, indicator):
-    """collects housing data from quanl zill api if available and not already collected - CA data only"""
+    """collects housing data from quandl zill api if available and not already collected - CA data only"""
     
     # check file exists
-    fn = 'data/api_data/{0}_{1}_ca.csv'.format(area.lower(), indicator.lower())
+    fn = 'data/api_data/{0}_{1}.csv'.format(area.lower(), indicator.lower())
     if os.path.isfile(fn):
         print 'this data set is already collected'
         return
     
     # validate params
-    areas = ('counties', 'cities', 'hoods')
+    areas = ('regions', 'states', 'counties', 'cities', 'hoods')
     if area not in areas:
         raise ValueError('area must be one of the following values: {0}'.format(areas))
     
@@ -69,7 +82,13 @@ def scrape_quandl(area, indicator):
     
     print 'lets scrape {0} / {1}'.format(area, indicator)
     
-    if area == 'counties':
+    if area == 'regions':
+        codes = load_regions()
+        area_api_category = 'M'
+    elif area == 'states':
+        codes = load_states()
+        area_api_category = 'S'
+    elif area == 'counties':
         codes = load_counties()
         area_api_category = 'CO'
     elif area == 'cities':
@@ -80,7 +99,7 @@ def scrape_quandl(area, indicator):
         area_api_category = 'N'
         
     df_master = pd.DataFrame()
-    for i in codes[codes.state=='CA'].code.values:    
+    for i in codes.code.values:    
         try:
             q =  "ZILL/{0}{1}_{2}".format(area_api_category, i, indicator.upper())
             df = Quandl.get(q, authtoken=QUANDL_API_KEY)
