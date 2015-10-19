@@ -161,9 +161,15 @@ def get_row_percentile(df):
 ## general empirics
 # 
 
-def get_betas(df, s, per=1):
-    df = (df / df.shift(per)).dropna(how='all')
-    s = (s / s.shift(per)).dropna(how='all')
+def get_betas(df, s, per=1, fwd=False):
+    
+    if fwd:
+        df = (df.shift(-per) / df - 1.).dropna(how='all')
+        s = (s.shift(-per) / s - 1.).dropna(how='all')
+    else:
+        df = (df / df.shift(per) - 1.).dropna(how='all')
+        s = (s / s.shift(per) - 1.).dropna(how='all')
+
     clf = lm.LinearRegression(fit_intercept=True)
     
     betas = []
@@ -176,16 +182,21 @@ def get_betas(df, s, per=1):
             pass
     return pd.DataFrame(betas).set_index('model')['beta']
 
-def get_beta_neutral_returns(df, s, per):
+def get_beta_neutral_returns(df, s, per, fwd=False):
     
-    betas = get_betas(df, s, per=per)
+    betas = get_betas(df, s, per=per, fwd=fwd)
     
-    df = (df / df.shift(per)).dropna(how='all')
-    s = (s / s.shift(per)).dropna(how='all')
+    if fwd:
+        df = (df.shift(-per) / df -1.).dropna(how='all')
+        s = (s.shift(-per) / s -1.).dropna(how='all')
+    else:
+        df = (df / df.shift(per) -1.).dropna(how='all')
+        s = (s / s.shift(per) -1.).dropna(how='all')
     
     a = np.expand_dims(s.values, axis=1)
     b = np.expand_dims(betas.values, axis=0)
     beta_ret = pd.DataFrame(a.dot(b), index=s.index, columns=betas.index)
+
     return (df - beta_ret)
 
 def gen_quintile_data(df, rank_col, display_col, agg='sum'):
@@ -249,7 +260,7 @@ def get_forward_return(df, periods):
     # df.drop(outliers, axis=1, inplace=True)    
     return df
 
-def lead_lag_corr(df_levels, df_returns, rng=range(-52,150,4)):
+def lead_lag_corr(df_levels, df_returns, rng=range(-52,150,8)):
     data = []
     for i in reversed(rng):
         rec_ret = (df_levels / df_levels.shift(i) - 1.).dropna(how='all')
