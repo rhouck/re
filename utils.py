@@ -164,11 +164,11 @@ def get_row_percentile(df):
 def get_betas(df, s, per=1):
     df = (df / df.shift(per)).dropna(how='all')
     s = (s / s.shift(per)).dropna(how='all')
-    clf = lm.LinearRegression(fit_intercept=False)
+    clf = lm.LinearRegression(fit_intercept=True)
     
     betas = []
     for c in df.columns:
-        d = pd.DataFrame({'X': df[c], 'y': s.values}).dropna() 
+        d = pd.DataFrame({'X': s.values, 'y': df[c].values}).dropna() 
         try:
             clf.fit(d[['X']], d['y'])
             betas.append({'model': c, 'beta':  clf.coef_[0]})
