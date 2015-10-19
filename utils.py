@@ -216,12 +216,12 @@ def get_cum_return(df, outlier_threshold=3):
     df = df.applymap(lambda x: x + 1.)
     df = (df / df.shift())#.replace(np.nan, 0)
     
-    # drop outliers - greater than 'outlier_threshold' std moves
-    #
-    z = get_z_scores(df)
-    z_max = z.applymap(lambda x: abs(x)).max()
-    outliers = z_max[z_max > outlier_threshold].index
-    df.drop(outliers, axis=1, inplace=True) 
+    # # drop outliers - greater than 'outlier_threshold' std moves
+    # #
+    # z = get_z_scores(df)
+    # z_max = z.applymap(lambda x: abs(x)).max()
+    # outliers = z_max[z_max > outlier_threshold].index
+    # df.drop(outliers, axis=1, inplace=True) 
     
     df = df.cumprod()  
     df = df.applymap(lambda x: x - 1.)
@@ -229,12 +229,12 @@ def get_cum_return(df, outlier_threshold=3):
 
 def get_forward_return(df, periods):    
     df = ((df.shift(-periods) / df) - 1.).dropna(how='all')
-    # drop outliers - greater than 3 std moves
-    #
-    z = get_z_scores(df)
-    z_max = z.applymap(lambda x: abs(x)).max()
-    outliers = z_max[z_max > 3].index
-    df.drop(outliers, axis=1, inplace=True)    
+    # # drop outliers - greater than 3 std moves
+    # #
+    # z = get_z_scores(df)
+    # z_max = z.applymap(lambda x: abs(x)).max()
+    # outliers = z_max[z_max > 3].index
+    # df.drop(outliers, axis=1, inplace=True)    
     return df
 
 def lead_lag_corr(df_levels, df_returns, rng=range(-52,150,4)):
@@ -269,15 +269,16 @@ def kalman_ma(df, transition_covariance=.01):
     
     df_new = pd.DataFrame()
     
-    # Construct a Kalman filter
-    kf = KalmanFilter(transition_matrices = [1],
-                      observation_matrices = [1],
-                      initial_state_mean = 0,
-                      initial_state_covariance = 1,
-                      observation_covariance=1,
-                      transition_covariance=transition_covariance)
-
     for c in df.columns:
+        
+        # Construct a Kalman filter
+        kf = KalmanFilter(transition_matrices = [1],
+                          observation_matrices = [1],
+                          initial_state_mean = df.ix[0,c],
+                          initial_state_covariance = 1,
+                          observation_covariance=1,
+                          transition_covariance=transition_covariance)
+
         # Use the observed values of the price to get a rolling mean
         state_means, _ = kf.filter(df[c].values)
         df_new[c] = state_means[:,0]
