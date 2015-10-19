@@ -11,7 +11,9 @@ from sklearn import linear_model as lm
 
 
 QUANDL_API_KEY = '11Uh5euqzE625yn6n5QG'
-
+RET_PER = 24
+FIG_WIDTH = 8
+FIG_HEIGHT = 4
 
 ## load quandl meta data
 #
@@ -119,7 +121,7 @@ def scrape_quandl(area, indicator):
     print 'done'
 
 def load_quandl_data(area, indicator):
-    fn = 'data/api_data/{0}_{1}_ca.csv'.format(area.lower(), indicator.lower())
+    fn = 'data/api_data/{0}_{1}.csv'.format(area.lower(), indicator.lower())
     if not os.path.isfile(fn):
         print 'this data set has not been collected'
         return
