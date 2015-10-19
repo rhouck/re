@@ -176,6 +176,18 @@ def get_betas(df, s, per=1):
             pass
     return pd.DataFrame(betas).set_index('model')['beta']
 
+def get_beta_neutral_returns(df, s, per):
+    
+    betas = get_betas(df, s, per=per)
+    
+    df = (df / df.shift(per)).dropna(how='all')
+    s = (s / s.shift(per)).dropna(how='all')
+    
+    a = np.expand_dims(s.values, axis=1)
+    b = np.expand_dims(betas.values, axis=0)
+    beta_ret = pd.DataFrame(a.dot(b), index=s.index, columns=betas.index)
+    return (df - beta_ret)
+
 def gen_quintile_data(df, rank_col, display_col, agg='sum'):
     
     rank = get_row_percentile(df[rank_col])
@@ -241,7 +253,7 @@ def lead_lag_corr(df_levels, df_returns, rng=range(-52,150,4)):
     data = []
     for i in reversed(rng):
         rec_ret = (df_levels / df_levels.shift(i) - 1.).dropna(how='all')
-        df_aligned = stack_and_align(rec_ret, df_returns, cols=['past', 'fwd'])
+        df_aligned = stack_and_align([rec_ret, df_returns], cols=['past', 'fwd'])
         c = df_aligned.corr().values[0,1]
         dif = (df_aligned['fwd'] - df_aligned['past']).mean()
         data.append({'per': i, 'corr': c, 'dif': dif})
