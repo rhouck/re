@@ -130,6 +130,31 @@ def load_quandl_data(area, indicator):
     df = df.resample('d', fill_method='bfill').resample('m')
     
     return df
+
+
+def load_target():
+    """target represents standardized beta neutral returns"""
+
+    df = load_quandl_data('hoods','A')
+    df = (df
+          .fillna(method='bfill', limit=3)
+          .fillna(method='ffill', limit=3)
+          .dropna(axis=1))
+    
+    mkt = load_quandl_data('states','A').ix[:,0]
+    
+    df = get_beta_neutral_returns(df.pct_change().dropna(), 
+                                     mkt.pct_change().dropna())
+    
+    df = get_cum_return(df) + 1.
+    
+    df = df.shift(-RET_PER) / df - 1.
+    df.dropna(how='all', inplace=True)
+    
+    df = get_z_scores(df)
+    
+    return df
+
  
 ## general tools
 #
@@ -145,7 +170,7 @@ def stack_and_align(dfs, cols=None):
             df = df.to_frame()
         return df
 
-    df = pd.concat([format(df) for df in dfs], axis=1).dropna()
+    df = pd.concat([format(df) for df in dfs], axis=1).dropna(how='all')
 
     if cols:
         df.columns = cols
@@ -182,23 +207,16 @@ def get_betas(df, s, per=1, fwd=False):
             pass
     return pd.DataFrame(betas).set_index('model')['beta']
 
-def get_beta_neutral_returns(df, s, per, fwd=False):
-    
-    betas = get_betas(df, s, per=per, fwd=fwd)
-    
-    if fwd:
-        df = (df.shift(-per) / df -1.).dropna(how='all')
-        s = (s.shift(-per) / s -1.).dropna(how='all')
-    else:
-        df = (df / df.shift(per) -1.).dropna(how='all')
-        s = (s / s.shift(per) -1.).dropna(how='all')
-    
-    a = np.expand_dims(s.values, axis=1)
-    b = np.expand_dims(betas.values, axis=0)
-    beta_ret = pd.DataFrame(a.dot(b), index=s.index, columns=betas.index)
+def get_beta_neutral_returns(df, s):
 
-    return (df - beta_ret)
-
+    clf = lm.LinearRegression(fit_intercept=True)
+    for c in df.columns:
+        X = pd.DataFrame(s.values)
+        y = df[c].values
+        clf.fit(X, y)
+        df[c] =  y - clf.predict(X)
+    return df
+    
 def gen_quintile_data(df, rank_col, display_col, agg='sum'):
     
     rank = get_row_percentile(df[rank_col])
@@ -235,9 +253,11 @@ def z_score_to_value(z_scores, values):
     std = values.std()
     return (z_scores * std) + m
 
-def get_cum_return(df, outlier_threshold=3):  
+def get_cum_return(df):  
+    
     df = df.applymap(lambda x: x + 1.)
-    df = (df / df.shift())#.replace(np.nan, 0)
+    
+    #df = (df / df.shift())#.replace(np.nan, 0)
     
     # # drop outliers - greater than 'outlier_threshold' std moves
     # #
@@ -260,14 +280,12 @@ def get_forward_return(df, periods):
     # df.drop(outliers, axis=1, inplace=True)    
     return df
 
-def lead_lag_corr(df_levels, df_returns, rng=range(-52,150,8)):
+def lead_lag_corr(ind, dep, rng=range(-52,52,4)):
     data = []
     for i in reversed(rng):
-        rec_ret = (df_levels / df_levels.shift(i) - 1.).dropna(how='all')
-        df_aligned = stack_and_align([rec_ret, df_returns], cols=['past', 'fwd'])
+        df_aligned = stack_and_align([ind.shift(i), dep]).dropna()
         c = df_aligned.corr().values[0,1]
-        dif = (df_aligned['fwd'] - df_aligned['past']).mean()
-        data.append({'per': i, 'corr': c, 'dif': dif})
+        data.append({'per': i, 'corr': c})
     corr = pd.DataFrame(data)
     corr.set_index('per', inplace=True)
     return corr
