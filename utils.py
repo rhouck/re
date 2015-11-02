@@ -1,6 +1,8 @@
 import datetime
 import os
 import time
+import random
+import string
 
 import pandas as pd
 import Quandl
@@ -8,6 +10,11 @@ import numpy as np
 import statsmodels.api as sm
 from pykalman import KalmanFilter
 from sklearn import linear_model as lm
+from IPython.display import Image 
+from sklearn.externals.six import StringIO
+from sklearn.externals.six import StringIO  
+import pydot
+from sklearn import tree
 
 
 QUANDL_API_KEY = '11Uh5euqzE625yn6n5QG'
@@ -327,3 +334,13 @@ def kalman_ma(df, transition_covariance=.01):
     df_new.index = df.index
     
     return df_new
+
+
+def tree_vis(clf):
+    fn = ''.join([random.choice(string.ascii_lowercase + string.digits) for _ in range(10)])
+    fn = 'data/trees/{0}.png'.format(fn)
+    dot_data = StringIO() 
+    tree.export_graphviz(clf, out_file=dot_data) 
+    graph = pydot.graph_from_dot_data(dot_data.getvalue())
+    graph.write_png(fn) 
+    return Image(filename=fn)
