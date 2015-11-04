@@ -139,8 +139,8 @@ def load_quandl_data(area, indicator):
     return df
 
 
-def load_target():
-    """target represents standardized beta neutral returns"""
+def load_target(neutral=False):
+    """target returns (beta neutral optional)"""
 
     df = load_quandl_data('hoods','A')
     df = (df
@@ -148,17 +148,19 @@ def load_target():
           .fillna(method='ffill', limit=3)
           .dropna(axis=1))
     
-    mkt = load_quandl_data('states','A').ix[:,0]
-    
-    df = get_beta_neutral_returns(df.pct_change().dropna(), 
-                                     mkt.pct_change().dropna())
+    df = df.pct_change().dropna()
+
+    if neutral:
+        mkt = load_quandl_data('states','A').ix[:,0]
+        
+        df = get_beta_neutral_returns(df, mkt.pct_change().dropna())
     
     df = get_cum_return(df) + 1.
     
     df = df.shift(-RET_PER) / df - 1.
     df.dropna(how='all', inplace=True)
     
-    df = get_z_scores(df)
+    #df = get_z_scores(df)
     
     return df
 
@@ -249,7 +251,7 @@ def gen_quintile_data(df, rank_col, display_col, agg='sum'):
 def ts_score(df):
     return  (df - df.mean()) / df.std()
 
-def get_z_scores(df):
+def get_panel_z_scores(df):
     m = df.stack().mean()
     std = df.stack().std()
     z = (df - m) / std
