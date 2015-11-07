@@ -15,6 +15,8 @@ from sklearn.externals.six import StringIO
 from sklearn.externals.six import StringIO  
 import pydot
 from sklearn import tree
+from matplotlib import pyplot as plt
+import seaborn as sns
 
 
 QUANDL_API_KEY = '11Uh5euqzE625yn6n5QG'
@@ -164,6 +166,19 @@ def load_target(neutral=False):
     
     return df
 
+def load_series(series):
+    
+    px_us = load_quandl_data('regions', series).ix[:,0]
+    px_ca = load_quandl_data('states', series).ix[:,0]
+    px_h = load_quandl_data('hoods', series)
+
+    px_h = (px_h
+            .fillna(method='bfill', limit=3)
+            .fillna(method='ffill', limit=3)
+            .dropna(axis=1))
+    
+    return px_h, px_ca, px_us
+
  
 ## general tools
 #
@@ -186,67 +201,19 @@ def stack_and_align(dfs, cols=None):
     
     return df
 
-def get_row_percentile(df):
-    df = df.unstack().rank(axis=1)
-    df = df.div(df.max(axis=1), axis='rows')
-    return df.stack()
-
-
-## general empirics
-# 
-
-def get_betas(df, s, per=1, fwd=False):
-    
-    if fwd:
-        df = (df.shift(-per) / df - 1.).dropna(how='all')
-        s = (s.shift(-per) / s - 1.).dropna(how='all')
+def get_row_percentile(s, ts=False):
+    if not ts:
+        s = s.unstack().rank(axis=1)
+        s = s.div(s.max(axis=1), axis='rows')
+        s = s.stack()
     else:
-        df = (df / df.shift(per) - 1.).dropna(how='all')
-        s = (s / s.shift(per) - 1.).dropna(how='all')
+        s = s.rank()
+        s = s.div(s.max())
+    return s
 
-    clf = lm.LinearRegression(fit_intercept=True)
-    
-    betas = []
-    for c in df.columns:
-        d = pd.DataFrame({'X': s.values, 'y': df[c].values}).dropna() 
-        try:
-            clf.fit(d[['X']], d['y'])
-            betas.append({'model': c, 'beta':  clf.coef_[0]})
-        except:
-            pass
-    return pd.DataFrame(betas).set_index('model')['beta']
 
-def get_beta_neutral_returns(df, s):
-
-    clf = lm.LinearRegression(fit_intercept=True)
-    for c in df.columns:
-        X = pd.DataFrame(s.values)
-        y = df[c].values
-        clf.fit(X, y)
-        df[c] =  y - clf.predict(X)
-    return df
-    
-def gen_quintile_data(df, rank_col, display_col, agg='sum'):
-    
-    rank = get_row_percentile(df[rank_col])
-    rank.name = 'rank'
-    
-    df = stack_and_align([df, rank])
-    
-    quint = pd.DataFrame()
-    for i in range(2, 12, 2):
-        i = i/10.
-        
-        d = df[(df['rank']>(i-.2)) & (df['rank']<i)][display_col].unstack()
-        
-        if agg=='sum':
-            d = d.sum(axis=1)
-        elif agg=='mean':
-            d = d.mean(axis=1)
-        
-        quint[i] = d
-
-    return quint
+## ts transformations
+#
 
 def ts_score(df):
     return  (df - df.mean()) / df.std()
@@ -289,6 +256,109 @@ def get_forward_return(df, periods):
     # df.drop(outliers, axis=1, inplace=True)    
     return df
 
+def kalman_ma(df, transition_covariance=.01):
+    
+    df_new = pd.DataFrame()
+    
+    for c in df.columns:
+        
+        # Construct a Kalman filter
+        kf = KalmanFilter(transition_matrices = [1],
+                          observation_matrices = [1],
+                          initial_state_mean = df.ix[0,c],
+                          initial_state_covariance = 1,
+                          observation_covariance=1,
+                          transition_covariance=transition_covariance)
+
+        # Use the observed values of the price to get a rolling mean
+        state_means, _ = kf.filter(df[c].values)
+        df_new[c] = state_means[:,0]
+    
+    df_new.index = df.index
+    
+    return df_new
+
+
+## general empirics
+# 
+
+def get_betas(df, s, per=1, fwd=False):
+    
+    if fwd:
+        df = (df.shift(-per) / df - 1.).dropna(how='all')
+        s = (s.shift(-per) / s - 1.).dropna(how='all')
+    else:
+        df = (df / df.shift(per) - 1.).dropna(how='all')
+        s = (s / s.shift(per) - 1.).dropna(how='all')
+
+    clf = lm.LinearRegression(fit_intercept=True)
+    
+    betas = []
+    for c in df.columns:
+        d = pd.DataFrame({'X': s.values, 'y': df[c].values}).dropna() 
+        try:
+            clf.fit(d[['X']], d['y'])
+            betas.append({'model': c, 'beta':  clf.coef_[0]})
+        except:
+            pass
+    return pd.DataFrame(betas).set_index('model')['beta']
+
+def get_beta_neutral_returns(df, s):
+
+    clf = lm.LinearRegression(fit_intercept=True)
+    for c in df.columns:
+        X = pd.DataFrame(s.values)
+        y = df[c].values
+        clf.fit(X, y)
+        df[c] =  y - clf.predict(X)
+    return df
+    
+def gen_quintile_ts(df, rank_col, display_col, agg='sum'):
+    
+    rank = get_row_percentile(df[rank_col])
+    rank.name = 'rank'
+    
+    df = stack_and_align([df, rank])
+    
+    quint = {}
+    for i in range(2, 12, 2):
+        i = i/10.
+        
+        d = df[(df['rank']>(i-.2)) & (df['rank']<i)][display_col].unstack()
+        
+        if agg=='sum':
+            d = d.sum(axis=1)
+        elif agg=='mean':
+            d = d.mean(axis=1)
+        
+        quint[i] = d
+
+    return pd.DataFrame(quint)
+
+
+def gen_quintile_flat(df, rank_col, display_col, agg='sum', ts=False):
+    
+    rank = get_row_percentile(df[rank_col], ts=ts)
+    rank.name = 'rank'
+    
+    df = stack_and_align([df, rank])
+    
+    quint = {}
+    for i in range(2, 12, 2):
+        i = i/10.
+        
+        d = df[(df['rank']>(i-.2)) & (df['rank']<i)][display_col]
+        
+        if agg=='sum':
+            d = d.sum()
+        elif agg=='mean':
+            d = d.mean()
+        
+        quint[i] = d
+
+    return pd.Series(quint)    
+
+
 def lead_lag_corr(ind, dep, rng=range(-52,52,4)):
     data = []
     for i in reversed(rng):
@@ -315,29 +385,6 @@ def simple_ols(X, y, fit_intercept=True):
             'f_test': f_test
            }
 
-def kalman_ma(df, transition_covariance=.01):
-    
-    df_new = pd.DataFrame()
-    
-    for c in df.columns:
-        
-        # Construct a Kalman filter
-        kf = KalmanFilter(transition_matrices = [1],
-                          observation_matrices = [1],
-                          initial_state_mean = df.ix[0,c],
-                          initial_state_covariance = 1,
-                          observation_covariance=1,
-                          transition_covariance=transition_covariance)
-
-        # Use the observed values of the price to get a rolling mean
-        state_means, _ = kf.filter(df[c].values)
-        df_new[c] = state_means[:,0]
-    
-    df_new.index = df.index
-    
-    return df_new
-
-
 def tree_vis(clf):
     fn = ''.join([random.choice(string.ascii_lowercase + string.digits) for _ in range(10)])
     fn = 'data/trees/{0}.png'.format(fn)
@@ -346,3 +393,48 @@ def tree_vis(clf):
     graph = pydot.graph_from_dot_data(dot_data.getvalue())
     graph.write_png(fn) 
     return Image(filename=fn)
+
+
+def explore_series(px_h, px_ca, px_us, tar):
+    fig, axes = plt.subplots(ncols=2, nrows=3, figsize=(FIG_WIDTH*2, FIG_HEIGHT*3))
+    px_us.plot(ax=axes[0,0], title='ca and us sig')
+    px_ca.plot(ax=axes[0,0], title='hoods sig')
+    px_h.plot(ax=axes[0,1], legend=False, alpha=.3)
+
+    (lead_lag_corr(px_h, tar, rng=range(-52,52,4))
+     .plot(kind='bar', title='lead lag corr', ax=axes[1,0]))#.axvline(0, linestyle='--', color='r'))
+
+    df = stack_and_align([px_h, tar], cols=('sig','tar')).dropna()
+    df = ts_score(df)
+    sns.distplot(df['sig'], ax=axes[2,0]).set_title('sig dist')
+    sns.regplot(df['sig'], df['tar'], ax=axes[2,1]).set_title('sig vs tar')
+
+    clf = lm.LinearRegression()
+    clf.fit(df[['sig']], df['tar'])
+    print('int: {0}\tcoef: {1}'.format(clf.intercept_, clf.coef_[0]))
+
+
+def build_model(clf, df):
+    
+    clf.fit(df[[c for c in df.columns if c != 'tar']], df['tar'])
+    s = pd.Series(ts_score(clf.predict(df[[c for c in df.columns if c != 'tar']])), index=df.index)
+    sns.jointplot(s, df['tar'], kind='reg')
+    score = clf.score(df[[c for c in df.columns if c != 'tar']], df['tar'])
+
+    df_res = stack_and_align([df['tar'], s], cols=('tar', 'pred'))
+    df_res['err'] = df_res['tar'] - df_res['pred']
+    df_res['err2'] = df_res['err'].map(lambda x: x**2)
+    avg_ret = df_res['tar'].unstack().mean(axis=1)
+    df_res['avg_ret'] = pd.DataFrame({c: avg_ret for c in df_res.index.levels[1]}).stack()
+
+    fig, axes = plt.subplots(ncols=2, nrows=4, figsize=(FIG_WIDTH*2, FIG_HEIGHT*4))
+    gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=False).plot(kind='bar', ax=axes[0,0], title='tar vs pred (xs)')
+    gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=True).plot(kind='bar', ax=axes[1,0], title='tar vs pred (ts)')
+    gen_quintile_flat(df_res, 'avg_ret', 'pred', agg='mean', ts=True).plot(kind='bar', ax=axes[2,0], title='mkt ret vs pred (ts)')
+    gen_quintile_flat(df_res, 'tar', 'err2', agg='sum', ts=False).plot(kind='bar', ax=axes[0,1], title='tar vs err2 (xs)')
+    gen_quintile_flat(df_res, 'tar', 'err2', agg='sum', ts=True).plot(kind='bar', ax=axes[1,1], title='tar vs err2 (ts)')
+    gen_quintile_flat(df_res, 'avg_ret', 'err2', agg='sum', ts=True).plot(kind='bar', ax=axes[2,1], title='mkt ret vs err2 (ts)')
+    gen_quintile_ts(df_res, 'pred', 'pred', agg='mean').plot(ax=axes[3,0], title='avg pred over time')
+    gen_quintile_ts(df_res, 'tar', 'tar', agg='mean').plot(ax=axes[3,1], title='avg tar over time')
+
+    return clf, df_res, score
