@@ -255,8 +255,20 @@ def get_row_percentile(s, ts=False):
 ## ts transformations
 #
 
-def ts_score(df):
-    return  (df - df.mean()) / df.std()
+def ts_score(df, panel=True):
+    
+    def ts(df):
+        return  (df - df.mean()) / df.std()
+    
+    if panel:
+        return ts(df)
+    else:
+        cols = df.columns
+        for c in cols:
+            d = df[c].unstack()
+            d = ts(d)
+            df.loc[:,c] = d.stack()
+        return df
 
 def get_panel_z_scores(df):
     m = df.stack().mean()
