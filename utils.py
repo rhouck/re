@@ -3,6 +3,7 @@ import os
 import time
 import random
 import string
+import math
 
 import pandas as pd
 import Quandl
@@ -23,6 +24,9 @@ QUANDL_API_KEY = '11Uh5euqzE625yn6n5QG'
 RET_PER = 24
 FIG_WIDTH = 8
 FIG_HEIGHT = 4
+TARGET_SERIES = 'A'
+TARGET_INDICATOR = 'hoods'
+
 
 ## load quandl meta data
 #
@@ -141,10 +145,10 @@ def load_quandl_data(area, indicator):
     return df
 
 
-def load_target(neutral=False):
-    """target returns (beta neutral optional)"""
+def load_returns():
+    """actual forward looking returns (using RET_PER)"""
 
-    df = load_quandl_data('hoods','A')
+    df = load_quandl_data(TARGET_INDICATOR,TARGET_SERIES)
     df = (df
           .fillna(method='bfill', limit=3)
           .fillna(method='ffill', limit=3)
@@ -152,32 +156,68 @@ def load_target(neutral=False):
     
     df = df.pct_change().dropna()
 
-    if neutral:
-        mkt = load_quandl_data('states','A').ix[:,0]
-        
-        df = get_beta_neutral_returns(df, mkt.pct_change().dropna())
-    
     df = get_cum_return(df) + 1.
     
     df = df.shift(-RET_PER) / df - 1.
     df.dropna(how='all', inplace=True)
-    
-    #df = get_z_scores(df)
-    
+        
     return df
+
+def load_target(neutral=False):
+    """target returns (beta neutral optional)"""
+
+    tar = load_returns()
+
+    if neutral:
+        raise Exception('add logic to create market neutral betas')
+
+    return tar
+    # df = load_quandl_data(TARGET_INDICATOR,TARGET_SERIES)
+    # df = (df
+    #       .fillna(method='bfill', limit=3)
+    #       .fillna(method='ffill', limit=3)
+    #       .dropna(axis=1))
+    
+    # df = df.pct_change().dropna()
+
+    # if neutral:
+    #     mkt = load_quandl_data('states',TARGET_SERIES).ix[:,0]
+        
+    #     df = get_beta_neutral_returns(df, mkt.pct_change().dropna())
+    
+    # df = get_cum_return(df) + 1.
+    
+    # df = df.shift(-RET_PER) / df - 1.
+    # df.dropna(how='all', inplace=True)
+    
+    # #df = get_z_scores(df)
+    
+    # return df
+
+
 
 def load_series(series):
     
     px_us = load_quandl_data('regions', series).ix[:,0]
     px_ca = load_quandl_data('states', series).ix[:,0]
-    px_h = load_quandl_data('hoods', series)
+    px = load_quandl_data(TARGET_INDICATOR, series)
 
-    px_h = (px_h
-            .fillna(method='bfill', limit=3)
-            .fillna(method='ffill', limit=3)
-            .dropna(axis=1))
+    px = (px.fillna(method='bfill', limit=3)
+          .fillna(method='ffill', limit=3)
+          .dropna(axis=1))
     
-    return px_h, px_ca, px_us
+    return px, px_ca, px_us
+
+def capped_change(px, px_ca, px_us, per=12):
+    px_us = px_us / px_us.shift(per) - 1.
+    px_ca = px_ca / px_ca.shift(per) - 1.
+    px = px / px.shift(per) - 1.
+
+    px_us = px_us.map(lambda x: 3 if x > 3 else x)
+    px_ca = px_ca.map(lambda x: 3 if x > 3 else x)
+    px = px.applymap(lambda x: 3 if x > 3 else x)
+    
+    return px, px_ca, px_us
 
  
 ## general tools
@@ -369,6 +409,7 @@ def lead_lag_corr(ind, dep, rng=range(-52,52,4)):
     corr.set_index('per', inplace=True)
     return corr
 
+
 def simple_ols(X, y, fit_intercept=True): 
     if fit_intercept:
         X = sm.add_constant(X)
@@ -395,16 +436,16 @@ def tree_vis(clf):
     return Image(filename=fn)
 
 
-def explore_series(px_h, px_ca, px_us, tar):
+def explore_series(px, px_ca, px_us, tar):
     fig, axes = plt.subplots(ncols=2, nrows=3, figsize=(FIG_WIDTH*2, FIG_HEIGHT*3))
     px_us.plot(ax=axes[0,0], title='ca and us sig')
     px_ca.plot(ax=axes[0,0], title='hoods sig')
-    px_h.plot(ax=axes[0,1], legend=False, alpha=.3)
+    px.plot(ax=axes[0,1], legend=False, alpha=.3)
 
-    (lead_lag_corr(px_h, tar, rng=range(-52,52,4))
+    (lead_lag_corr(px, tar, rng=range(-52,52,4))
      .plot(kind='bar', title='lead lag corr', ax=axes[1,0]))#.axvline(0, linestyle='--', color='r'))
 
-    df = stack_and_align([px_h, tar], cols=('sig','tar')).dropna()
+    df = stack_and_align([px, tar], cols=('sig','tar')).dropna()
     df = ts_score(df)
     sns.distplot(df['sig'], ax=axes[2,0]).set_title('sig dist')
     sns.regplot(df['sig'], df['tar'], ax=axes[2,1]).set_title('sig vs tar')
@@ -421,13 +462,17 @@ def build_model(clf, df):
     sns.jointplot(s, df['tar'], kind='reg')
     score = clf.score(df[[c for c in df.columns if c != 'tar']], df['tar'])
 
-    df_res = stack_and_align([df['tar'], s], cols=('tar', 'pred'))
+    ret = load_returns().stack().ix[df.index]
+    # dif between avg ret and avg tar
+
+
+    df_res = stack_and_align([df['tar'], s, ret], cols=('tar', 'pred', 'ret'))
     df_res['err'] = df_res['tar'] - df_res['pred']
     df_res['err2'] = df_res['err'].map(lambda x: x**2)
     avg_ret = df_res['tar'].unstack().mean(axis=1)
     df_res['avg_ret'] = pd.DataFrame({c: avg_ret for c in df_res.index.levels[1]}).stack()
 
-    fig, axes = plt.subplots(ncols=2, nrows=4, figsize=(FIG_WIDTH*2, FIG_HEIGHT*4))
+    fig, axes = plt.subplots(ncols=2, nrows=5, figsize=(FIG_WIDTH*2, FIG_HEIGHT*5))
     gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=False).plot(kind='bar', ax=axes[0,0], title='tar vs pred (xs)')
     gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=True).plot(kind='bar', ax=axes[1,0], title='tar vs pred (ts)')
     gen_quintile_flat(df_res, 'avg_ret', 'pred', agg='mean', ts=True).plot(kind='bar', ax=axes[2,0], title='mkt ret vs pred (ts)')
@@ -436,5 +481,12 @@ def build_model(clf, df):
     gen_quintile_flat(df_res, 'avg_ret', 'err2', agg='sum', ts=True).plot(kind='bar', ax=axes[2,1], title='mkt ret vs err2 (ts)')
     gen_quintile_ts(df_res, 'pred', 'pred', agg='mean').plot(ax=axes[3,0], title='avg pred over time')
     gen_quintile_ts(df_res, 'tar', 'tar', agg='mean').plot(ax=axes[3,1], title='avg tar over time')
+    avg_rank_accuracy(df_res).plot(ax=axes[4,0], title='avg pred rank accuracy')
 
     return clf, df_res, score
+
+def avg_rank_accuracy(df_res):
+    d = gen_quintile_ts(df_res, 'pred', 'tar', agg='mean')
+    d = get_row_percentile(d.stack()).unstack()
+    d = d.fillna(method='ffill').dropna()
+    return kalman_ma(d)
