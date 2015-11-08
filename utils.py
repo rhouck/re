@@ -145,10 +145,10 @@ def load_quandl_data(area, indicator):
     return df
 
 
-def load_returns():
+def load_returns(indicator=TARGET_INDICATOR, series=TARGET_SERIES):
     """actual forward looking returns (using RET_PER)"""
 
-    df = load_quandl_data(TARGET_INDICATOR,TARGET_SERIES)
+    df = load_quandl_data(indicator, series)
     df = (df
           .fillna(method='bfill', limit=3)
           .fillna(method='ffill', limit=3)
@@ -455,6 +455,28 @@ def explore_series(px, px_ca, px_us, tar):
     print('int: {0}\tcoef: {1}'.format(clf.intercept_, clf.coef_[0]))
 
 
+def avg_rank_accuracy(df_res):
+    d = gen_quintile_ts(df_res, 'pred', 'tar', agg='mean')
+    d = get_row_percentile(d.stack()).unstack()
+    d = d.fillna(method='ffill').dropna()
+    return kalman_ma(d)
+
+
+def get_cum_perforance(df):
+    return get_cum_return(df.applymap(lambda x: math.pow(x + 1., (1./RET_PER)) - 1.))
+
+
+def get_sharpe_ratio(df, rfr=0.0):
+    ind = df.index
+    q = ind.shape[0] / ((ind[-1] - ind[0]).days / 365.)
+
+    an_ret = df.mean() * q
+    an_vol = df.std() * math.sqrt(q)
+    sharpe = (an_ret - rfr) / an_vol
+    
+    return sharpe
+
+
 def build_model(clf, df):
     
     clf.fit(df[[c for c in df.columns if c != 'tar']], df['tar'])
@@ -481,12 +503,30 @@ def build_model(clf, df):
     gen_quintile_flat(df_res, 'avg_ret', 'err2', agg='sum', ts=True).plot(kind='bar', ax=axes[2,1], title='mkt ret vs err2 (ts)')
     gen_quintile_ts(df_res, 'pred', 'pred', agg='mean').plot(ax=axes[3,0], title='avg pred over time')
     gen_quintile_ts(df_res, 'tar', 'tar', agg='mean').plot(ax=axes[3,1], title='avg tar over time')
+    
     avg_rank_accuracy(df_res).plot(ax=axes[4,0], title='avg pred rank accuracy')
 
+    q = gen_quintile_ts(df_res, 'pred', 'ret', agg='mean')
+    q['mkt'] = load_returns('states').ix[:,0]
+    print('sharpe ratios:')
+    print get_sharpe_ratio(q)
+    get_cum_perforance(q).plot(ax=axes[4,1], title='continuously invested performance')
+    
     return clf, df_res, score
 
-def avg_rank_accuracy(df_res):
-    d = gen_quintile_ts(df_res, 'pred', 'tar', agg='mean')
-    d = get_row_percentile(d.stack()).unstack()
-    d = d.fillna(method='ffill').dropna()
-    return kalman_ma(d)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
