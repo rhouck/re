@@ -495,8 +495,11 @@ def get_sharpe_ratio(df, rfr=0.0):
     return sharpe
 
 
-def build_model(clf, df):
+def build_model(clf, df, panel):
     
+
+    df = ts_score(df, panel)
+
     clf.fit(df[[c for c in df.columns if c != 'tar']], df['tar'])
     s = pd.Series(ts_score(clf.predict(df[[c for c in df.columns if c != 'tar']])), index=df.index)
     sns.jointplot(s, df['tar'], kind='reg')
