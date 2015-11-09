@@ -208,17 +208,6 @@ def load_series(series):
     
     return px, px_ca, px_us
 
-def capped_change(px, px_ca, px_us, per=12):
-    px_us = px_us / px_us.shift(per) - 1.
-    px_ca = px_ca / px_ca.shift(per) - 1.
-    px = px / px.shift(per) - 1.
-
-    px_us = px_us.map(lambda x: 3 if x > 3 else x)
-    px_ca = px_ca.map(lambda x: 3 if x > 3 else x)
-    px = px.applymap(lambda x: 3 if x > 3 else x)
-    
-    return px, px_ca, px_us
-
  
 ## general tools
 #
@@ -329,6 +318,23 @@ def kalman_ma(df, transition_covariance=.01):
     df_new.index = df.index
     
     return df_new
+
+def capped_transformation(func, px, px_ca, px_us):
+    """apply a transformation 'func' to each time series and suppress outliers"""
+    px = func(px)
+    px_ca = func(px_ca)
+    px_us = func(px_us)
+    
+    px_us = px_us.map(lambda x: 3 if x > 3 else x)
+    px_ca = px_ca.map(lambda x: 3 if x > 3 else x)
+    px = px.applymap(lambda x: 3 if x > 3 else x)
+    
+    return px, px_ca, px_us
+
+def momentum(df, per=12):
+    df = df.pct_change()
+    #return pd.rolling_mean(df, window=per).dropna()
+    return pd.ewma(df, halflife=per, min_periods=per).dropna(how='all')
 
 
 ## general empirics
