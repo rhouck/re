@@ -83,7 +83,7 @@ def scrape_quandl(area, indicator):
     # check file exists
     fn = 'data/api_data/{0}_{1}.csv'.format(area.lower(), indicator.lower())
     if os.path.isfile(fn):
-        print 'this data set is already collected'
+        print('this data set is already collected')
         return
     
     # validate params
@@ -95,7 +95,7 @@ def scrape_quandl(area, indicator):
     if indicator.upper() not in indicators.ix[:,1].values:
         raise ValueError('invalid inidicator value: {0}'.format(indicator.upper()))
     
-    print 'lets scrape {0} / {1}'.format(area, indicator)
+    print('lets scrape {0} / {1}'.format(area, indicator))
     
     if area == 'regions':
         codes = load_regions()
@@ -123,7 +123,7 @@ def scrape_quandl(area, indicator):
             time.sleep(.06)
         except Exception as err:
             if str(err) == 'Error Downloading! HTTP Error 429: Too Many Requests':
-                print err
+                print(err)
                 return
             print('no data for code:\t{0}'.format(i))
             
@@ -131,12 +131,12 @@ def scrape_quandl(area, indicator):
     if df_master.shape[0]:
         df_master.to_csv(fn)
     
-    print 'done'
+    print('done')
 
 def load_quandl_data(area, indicator):
     fn = 'data/api_data/{0}_{1}.csv'.format(area.lower(), indicator.lower())
     if not os.path.isfile(fn):
-        print 'this data set has not been collected'
+        print('this data set has not been collected')
         return
     
     df = pd.read_csv(fn, parse_dates='Date', index_col='Date')
@@ -533,7 +533,7 @@ def build_model(clf, df, panel):
     q = gen_quintile_ts(df_res, 'pred', 'ret', agg='mean')
     q['mkt'] = load_returns('states').ix[:,0]
     print('sharpe ratios:')
-    print get_sharpe_ratio(q)
+    print(get_sharpe_ratio(q))
     get_cum_perforance(q).plot(ax=axes[4,1], title='continuously invested performance')
     
     return clf, df_res, score
