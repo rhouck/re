@@ -20,6 +20,7 @@ from matplotlib import pyplot as plt
 import seaborn as sns
 
 
+GOOGLE_GEO_API_KEY = 'AIzaSyBokaP11Fg_zdNKo1nTmfwH-5tX2UST7mA'
 QUANDL_API_KEY = '11Uh5euqzE625yn6n5QG'
 RET_PER = 24
 FIG_WIDTH = 8
