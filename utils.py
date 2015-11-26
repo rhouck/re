@@ -254,7 +254,7 @@ def collect_google_geo_data():
             try:
                 res = poll_google_geo_api(row[:-1])
                 res = parse_google_geo_response(res)
-                res['code'] = str(row[-1])
+                res['code'] = row[-1]
                 rows.append(res)
             except Exception as err:
                 print('error collecting: {0}\terr: {1}'.format(row, err))
