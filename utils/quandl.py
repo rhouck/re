@@ -60,7 +60,7 @@ def scrape_quandl(area, indicator):
     """collects housing data from quandl zill api if available and not already collected - CA data only"""
     
     # check file exists
-    fn = 'data/api_data/{0}_{1}.csv'.format(area.lower(), indicator.lower())
+    fn = 'data/quandl_api/{0}_{1}.csv'.format(area.lower(), indicator.lower())
     if os.path.isfile(fn):
         print('this data set is already collected')
         return
@@ -113,7 +113,7 @@ def scrape_quandl(area, indicator):
     print('done')
 
 def load_quandl_data(area, indicator):
-    fn = 'data/api_data/{0}_{1}.csv'.format(area.lower(), indicator.lower())
+    fn = 'data/quandl_api/{0}_{1}.csv'.format(area.lower(), indicator.lower())
     if not os.path.isfile(fn):
         print('this data set has not been collected')
         return

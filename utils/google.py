@@ -42,7 +42,7 @@ def collect_google_geo_data(locs):
 
         print('collecting {0} geos'.format(l[0]))
         # check file exists
-        fn = 'data/geo_data/{0}.csv'.format(l[0])
+        fn = 'data/geo/{0}.csv'.format(l[0])
         if os.path.isfile(fn):
             print('this data set is already collected')
             continue
