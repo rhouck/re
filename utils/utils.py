@@ -29,6 +29,7 @@ FIG_HEIGHT = 4
 TARGET_SERIES = 'A'
 TARGET_INDICATOR = 'hoods'
 
+from utils.google import *
 
 ## load quandl meta data
 #
@@ -210,28 +211,8 @@ def load_series(series):
     
     return px, px_ca, px_us
 
-
-## google geo api data
-#
-
-def poll_google_geo_api(locs):
-    q = ','.join(['+' + i.strip().replace(' ','+') for i in locs])[1:]
-    q += ',+CA'
-    payload = {'key': GOOGLE_GEO_API_KEY, 'address': q}
-    r = requests.get('https://maps.googleapis.com/maps/api/geocode/json?', params=payload)
-    if r.status_code == 200:
-        res = r.json()['results']
-        return res
-    else:
-        raise Exception('unsuccessful request - status code {0}'.format(r.status_code))
-
-def parse_google_geo_response(res):
-    ac = res[0]['address_components']
-    loc_type = ac[0]['types'][0]
-    name = ', '.join([i['long_name'] for i in ac])
-    loc = res[0]['geometry']['location']
-    return {'lat': loc['lat'], 'lon': loc['lng'], 'type': loc_type, 'name': name}  
-
+## collect google data
+# 
 
 def collect_google_geo_data():
     
@@ -252,7 +233,7 @@ def collect_google_geo_data():
         rows = []
         for ind, row in enumerate(l[1]):
             try:
-                res = poll_google_geo_api(row[:-1])
+                res = poll_google_geo_api(row[:-1], GOOGLE_GEO_API_KEY)
                 res = parse_google_geo_response(res)
                 res['code'] = row[-1]
                 rows.append(res)
@@ -263,8 +244,6 @@ def collect_google_geo_data():
     
     print('done')
 
-
- 
 ## general tools
 #
 
