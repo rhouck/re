@@ -5,7 +5,6 @@ import Quandl
 
 from utils.utils import *
 
-QUANDL_API_KEY = '11Uh5euqzE625yn6n5QG'
 
 ## load quandl meta data
 #
@@ -173,7 +172,6 @@ def load_target(neutral=False):
     # #df = get_z_scores(df)
     
     # return df
-
 
 
 def load_series(series):

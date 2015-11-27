@@ -6,8 +6,6 @@ import numpy as np
 
 from utils.utils import *
 
-GOOGLE_GEO_API_KEY = 'AIzaSyBokaP11Fg_zdNKo1nTmfwH-5tX2UST7mA'
-
 
 def poll_google_geo_api(locs, api_key):
     q = ','.join(['+' + i.strip().replace(' ','+') for i in locs])[1:]

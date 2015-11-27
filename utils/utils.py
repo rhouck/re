@@ -13,13 +13,7 @@ from sklearn import tree
 from matplotlib import pyplot as plt
 import seaborn as sns
 
-
-RET_PER = 24
-FIG_WIDTH = 8
-FIG_HEIGHT = 4
-TARGET_SERIES = 'A'
-TARGET_INDICATOR = 'hoods'
-
+from settings import *
 
 ## general tools
 #
