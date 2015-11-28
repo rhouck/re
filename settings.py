@@ -2,7 +2,7 @@
 #
 RET_PER = 24
 TARGET_SERIES = 'A'
-TARGET_INDICATOR = 'hoods'
+TARGET_INDICATOR = 'cities'
 
 ## plotting settings
 # 
