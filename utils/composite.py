@@ -9,17 +9,15 @@ def build_model(clf, df, panel):
     df = ts_score(df, panel)
 
     clf.fit(df[[c for c in df.columns if c != 'tar']], df['tar'])
-    
-    # WHY DOES THIS MATTER
-    s = pd.Series(ts_score(clf.predict(df[[c for c in df.columns if c != 'tar']])), index=df.index, name='pred')
-    #s = pd.Series(clf.predict(df[[c for c in df.columns if c != 'tar']]), index=df.index, name='pred')
-    
-    sns.jointplot(s, df['tar'], kind='reg')
+      
+    pred = pd.Series(clf.predict(df[[c for c in df.columns if c != 'tar']]), index=df.index, name='pred')
+    sns.jointplot(pred, df['tar'], kind='reg')
+
     score = clf.score(df[[c for c in df.columns if c != 'tar']], df['tar'])
 
     ret = load_returns().stack().ix[df.index]
     
-    df_res = stack_and_align([df['tar'], s, ret], cols=('tar', 'pred', 'ret'))
+    df_res = stack_and_align([df['tar'], pred, ret], cols=('tar', 'pred', 'ret'))
     df_res['err'] = df_res['tar'] - df_res['pred']
     df_res['err2'] = df_res['err'].map(lambda x: x**2)
     avg_tar = df_res['tar'].unstack().mean(axis=1)
@@ -43,4 +41,4 @@ def build_model(clf, df, panel):
     print(get_sharpe_ratio(q))
     get_cum_perforance(q).plot(ax=axes[4,1], title='continuously invested performance')
     
-    return clf, df_res, score
+    return clf, df_res, score, pred

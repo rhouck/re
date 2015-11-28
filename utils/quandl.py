@@ -177,7 +177,9 @@ def load_target(neutral=False):
 def load_series(series):
     
     px_us = load_quandl_data('regions', series).ix[:,0]
+    px_us.name = 'us'
     px_ca = load_quandl_data('states', series).ix[:,0]
+    px_ca.name = 'ca'
     px = load_quandl_data(TARGET_INDICATOR, series)
 
     px = (px.fillna(method='bfill', limit=3)

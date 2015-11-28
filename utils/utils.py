@@ -264,8 +264,8 @@ def tree_vis(clf):
 
 def explore_series(px, px_ca, px_us, tar):
     fig, axes = plt.subplots(ncols=2, nrows=3, figsize=(FIG_WIDTH*2, FIG_HEIGHT*3))
-    px_us.plot(ax=axes[0,0], title='ca and us sig')
-    px_ca.plot(ax=axes[0,0], title='hoods sig')
+    px_us.plot(ax=axes[0,0], title='ca and us sig', legend=True)
+    px_ca.plot(ax=axes[0,0], legend=True)
     px.plot(ax=axes[0,1], legend=False, alpha=.3)
 
     (lead_lag_corr(px, tar, rng=range(-52,52,4))
