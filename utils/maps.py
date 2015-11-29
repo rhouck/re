@@ -25,7 +25,7 @@ def draw_CA():
 
 
 def load_pred_for_map():
-    print(TARGET_INDICATOR)
+
     px = ql.load_quandl_data(TARGET_INDICATOR, TARGET_SERIES).stack()
 
     pred = pd.read_csv('data/processed/pred.csv', converters={'code': str})
