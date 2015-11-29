@@ -129,7 +129,7 @@ def load_returns(indicator=TARGET_INDICATOR, series=TARGET_SERIES):
 
     df = load_quandl_data(indicator, series)
     df = (df
-          .fillna(method='bfill', limit=3)
+          #.fillna(method='bfill', limit=3)
           .fillna(method='ffill', limit=3)
           .dropna(axis=1))
     
@@ -182,7 +182,8 @@ def load_series(series):
     px_ca.name = 'ca'
     px = load_quandl_data(TARGET_INDICATOR, series)
 
-    px = (px.fillna(method='bfill', limit=3)
+    px = (px
+          #.fillna(method='bfill', limit=3)
           .fillna(method='ffill', limit=3)
           .dropna(axis=1))
     
