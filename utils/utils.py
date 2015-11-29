@@ -278,7 +278,8 @@ def explore_series(px, px_ca, px_us, tar):
 
     clf = lm.LinearRegression()
     clf.fit(df[['sig']], df['tar'])
-    print('int: {0}\tcoef: {1}'.format(clf.intercept_, clf.coef_[0]))
+    score = clf.score(df[['sig']], df['tar'])
+    print('int: {0}\tcoef: {1}\tr2 score: {2}'.format(clf.intercept_, clf.coef_[0], score))
 
 
 def avg_rank_accuracy(df_res):
