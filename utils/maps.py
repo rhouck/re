@@ -25,8 +25,8 @@ def draw_CA():
 
 
 def load_pred_for_map():
-
-    px = ql.load_quandl_data(ut.TARGET_INDICATOR, ut.TARGET_SERIES).stack()
+    print(TARGET_INDICATOR)
+    px = ql.load_quandl_data(TARGET_INDICATOR, TARGET_SERIES).stack()
 
     pred = pd.read_csv('data/processed/pred.csv', converters={'code': str})
     pred.Date = pd.to_datetime(pred.Date)
@@ -36,14 +36,20 @@ def load_pred_for_map():
     df.index.levels[0].name = 'date'
     df.index.levels[1].name = 'code'
 
-    cities_geo = pd.read_csv('data/geo/cities.csv', converters={'code': str})
+    geos = pd.read_csv('data/geo/{0}.csv'.format(TARGET_INDICATOR), converters={'code': str})
     df = (df.reset_index()
-          .merge(cities_geo[['code', 'lon', 'lat']], on='code')
+          .merge(geos[['code', 'lon', 'lat']], on='code')
           .set_index(['date', 'code']))
 
-    cities = ql.load_cities()
+    if TARGET_INDICATOR == 'counties':
+        quandl_codes = ql.load_counties()
+    elif TARGET_INDICATOR == 'cities':
+        quandl_codes = ql.load_cities()
+    elif TARGET_INDICATOR == 'hoods':
+        quandl_codes = ql.load_hoods()
+
     df = (df.reset_index()
-          .merge(cities, on='code')
+          .merge(quandl_codes, on='code')
           .set_index(['date', 'code']))
     
     return df
