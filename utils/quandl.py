@@ -3,8 +3,8 @@ import os
 import pandas as pd
 import Quandl
 
-from utils.utils import *
-
+from utils import utils as ut
+from settings import *
 
 ## load quandl meta data
 #
@@ -112,8 +112,8 @@ def scrape_quandl(area, indicator):
     
     print('done')
 
-def load_quandl_data(area, indicator):
-    fn = 'data/quandl_api/{0}_{1}.csv'.format(area.lower(), indicator.lower())
+def load_quandl_data(indicator, series):
+    fn = 'data/quandl_api/{0}_{1}.csv'.format(indicator.lower(), series.lower())
     if not os.path.isfile(fn):
         print('this data set has not been collected')
         return
@@ -135,7 +135,7 @@ def load_returns(indicator=TARGET_INDICATOR, series=TARGET_SERIES):
     
     df = df.pct_change().dropna()
 
-    df = get_cum_return(df) + 1.
+    df = ut.get_cum_return(df) + 1.
     
     df = df.shift(-RET_PER) / df - 1.
     df.dropna(how='all', inplace=True)

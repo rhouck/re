@@ -4,7 +4,7 @@ import requests
 import pandas as pd
 import numpy as np
 
-from utils.utils import *
+from settings import *
 
 
 def poll_google_geo_api(locs, api_key):
