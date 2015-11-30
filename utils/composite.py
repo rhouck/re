@@ -1,10 +1,34 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn import linear_model as lm
 
 from utils import utils as ut
 from utils import quandl as ql
 from settings import *
+
+
+def explore_series(px, px_ca, px_us, tar):
+    fig, axes = plt.subplots(ncols=2, nrows=3, figsize=(FIG_WIDTH*2, FIG_HEIGHT*3))
+    px_us.plot(ax=axes[0,0], title='ca and us sig', legend=True)
+    px_ca.plot(ax=axes[0,0], legend=True)
+    px.plot(ax=axes[0,1], legend=False, alpha=.3)
+
+    (ut.lead_lag_corr(px, tar, rng=range(-52,52,4))
+     .plot(kind='bar', title='lead lag corr', ax=axes[1,0]))#.axvline(0, linestyle='--', color='r'))
+
+    df = ut.stack_and_align([px, tar], cols=('sig','tar')).dropna()
+    df = ut.ts_score(df)
+    sns.distplot(df['sig'], ax=axes[2,0]).set_title('sig dist')
+    sns.regplot(df['sig'], df['tar'], ax=axes[2,1]).set_title('sig vs tar')
+
+    clf = lm.LinearRegression()
+    clf.fit(df[['sig']], df['tar'])
+    score = clf.score(df[['sig']], df['tar'])
+    corr = ut.get_xs_corr(df['sig'], df['tar'])
+
+    print('int: {0:03f}\tcoef: {1:03f}\tr2 score: {2:03f}\txs corr: {3:03f}'.format(clf.intercept_, clf.coef_[0], score, corr))
+
 
 def build_model(clf, df, panel):
     
@@ -16,6 +40,7 @@ def build_model(clf, df, panel):
     sns.jointplot(pred, df['tar'], kind='reg')
 
     score = clf.score(df[[c for c in df.columns if c != 'tar']], df['tar'])
+    corr = ut.get_xs_corr(pred, df['tar'])
 
     ret = ql.load_returns().stack().ix[df.index]
     
@@ -41,6 +66,9 @@ def build_model(clf, df, panel):
     q['mkt'] = ql.load_returns('states').ix[:,0]
     print('sharpe ratios:')
     print(ut.get_sharpe_ratio(q))
-    ut.get_cum_perforance(q).plot(ax=axes[4,1], title='continuously invested performance')
     
+    ut.get_cum_perforance(q).plot(ax=axes[4,1], title='continuously invested performance')
+    print
+    print('r2: {0:03f}\txs corr: {1:03f}'.format(score, corr))
+
     return clf, df_res, score, pred

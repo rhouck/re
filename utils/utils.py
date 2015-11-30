@@ -250,7 +250,6 @@ def simple_ols(X, y, fit_intercept=True):
             'f_test': f_test
            }
 
-
 def tree_vis(clf):
     #fn = ''.join([random.choice(string.ascii_lowercase + string.digits) for _ in range(10)])
     fn = 'tree'
@@ -260,26 +259,6 @@ def tree_vis(clf):
     graph = pydot.graph_from_dot_data(dot_data.getvalue())
     graph.write_png(fn) 
     return Image(filename=fn)
-
-
-def explore_series(px, px_ca, px_us, tar):
-    fig, axes = plt.subplots(ncols=2, nrows=3, figsize=(FIG_WIDTH*2, FIG_HEIGHT*3))
-    px_us.plot(ax=axes[0,0], title='ca and us sig', legend=True)
-    px_ca.plot(ax=axes[0,0], legend=True)
-    px.plot(ax=axes[0,1], legend=False, alpha=.3)
-
-    (lead_lag_corr(px, tar, rng=range(-52,52,4))
-     .plot(kind='bar', title='lead lag corr', ax=axes[1,0]))#.axvline(0, linestyle='--', color='r'))
-
-    df = stack_and_align([px, tar], cols=('sig','tar')).dropna()
-    df = ts_score(df)
-    sns.distplot(df['sig'], ax=axes[2,0]).set_title('sig dist')
-    sns.regplot(df['sig'], df['tar'], ax=axes[2,1]).set_title('sig vs tar')
-
-    clf = lm.LinearRegression()
-    clf.fit(df[['sig']], df['tar'])
-    score = clf.score(df[['sig']], df['tar'])
-    print('int: {0}\tcoef: {1}\tr2 score: {2}'.format(clf.intercept_, clf.coef_[0], score))
 
 
 def avg_rank_accuracy(df_res):
@@ -303,6 +282,11 @@ def get_sharpe_ratio(df, rfr=0.0):
     
     return sharpe
 
+def get_xs_corr(sig, tar):
+    corr = (stack_and_align([get_row_percentile(sig), get_row_percentile(tar)], 
+                            cols=('sig', 'tar'))
+            .corr().loc['sig', 'tar'])
+    return corr
 
 
 
