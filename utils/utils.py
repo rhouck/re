@@ -249,6 +249,7 @@ def simple_ols(X, y, fit_intercept=True):
             #'t_test': results.t_test([0,0]),
             'f_test': f_test
            }
+           
 
 def tree_vis(clf):
     #fn = ''.join([random.choice(string.ascii_lowercase + string.digits) for _ in range(10)])
