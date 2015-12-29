@@ -50,6 +50,26 @@ def get_row_percentile(s, ts=False):
 ## ts transformations
 #
 
+
+def xs_z_score_winsorize(df, threshold=3):
+    m = df.mean(axis=1)
+    std = df.std(axis=1)
+    
+    limmit = m + std * threshold
+    limmit = pd.DataFrame(np.repeat(np.array([limmit.values]).T, df.shape[1], axis=1), 
+                         index=df.index, 
+                         columns=df.columns)
+    df = pd.concat([df.stack(), limmit.stack()], axis=1).min(axis=1).unstack()
+    
+    limmit = m - std * threshold
+    limmit = pd.DataFrame(np.repeat(np.array([limmit.values]).T, df.shape[1], axis=1), 
+                         index=df.index, 
+                         columns=df.columns)
+    df = pd.concat([df.stack(), limmit.stack()], axis=1).max(axis=1).unstack()
+
+    return df
+
+
 def ts_score(df, panel=True):
     
     def ts(df):
@@ -249,7 +269,7 @@ def simple_ols(X, y, fit_intercept=True):
             #'t_test': results.t_test([0,0]),
             'f_test': f_test
            }
-           
+
 
 def tree_vis(clf):
     #fn = ''.join([random.choice(string.ascii_lowercase + string.digits) for _ in range(10)])
