@@ -1,3 +1,5 @@
+from pprint import pprint
+
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -30,20 +32,23 @@ def explore_series(px, px_ca, px_us, tar):
     print('int: {0:03f}\tcoef: {1:03f}\tr2 score: {2:03f}\txs corr: {3:03f}'.format(clf.intercept_, clf.coef_[0], score, corr))
 
 
-def build_model(clf, df, panel):
+def build_model(clf, df):
     
-    df = ut.ts_score(df, panel)
-
     clf.fit(df[[c for c in df.columns if c != 'tar']], df['tar'])
-      
-    pred = pd.Series(clf.predict(df[[c for c in df.columns if c != 'tar']]), index=df.index, name='pred')
+    pprint(clf.grid_scores_)
+    print('\n')
+    pprint(clf.best_estimator_)
+    
+    pred = pd.Series(clf.predict(df[[c for c in df.columns if c != 'tar']]), 
+                     index=df.index, name='pred')
     sns.jointplot(pred, df['tar'], kind='reg')
 
     score = clf.score(df[[c for c in df.columns if c != 'tar']], df['tar'])
     corr = ut.get_xs_corr(pred, df['tar'])
+    print('\n')
+    print('r2: {0:03f}\txs corr: {1:03f}'.format(score, corr))
 
-    ret = ql.load_returns().stack().ix[df.index]
-    
+    ret = ql.load_returns().stack().ix[df.index]    
     df_res = ut.stack_and_align([df['tar'], pred, ret], cols=('tar', 'pred', 'ret'))
     df_res['err'] = df_res['tar'] - df_res['pred']
     df_res['err2'] = df_res['err'].map(lambda x: x**2)
@@ -60,15 +65,13 @@ def build_model(clf, df, panel):
     ut.gen_quintile_ts(df_res, 'pred', 'pred', agg='mean').plot(ax=axes[3,0], title='avg pred over time')
     ut.gen_quintile_ts(df_res, 'tar', 'tar', agg='mean').plot(ax=axes[3,1], title='avg tar over time')
     
-    ut.avg_rank_accuracy(df_res).plot(ax=axes[4,0], title='avg pred rank accuracy')
-
     q = ut.gen_quintile_ts(df_res, 'pred', 'ret', agg='mean')
     q['mkt'] = ql.load_returns('states').ix[:,0]
+    print('\n')
     print('sharpe ratios:')
     print(ut.get_sharpe_ratio(q))
-    
-    ut.get_cum_perforance(q).plot(ax=axes[4,1], title='continuously invested performance')
-    print
-    print('r2: {0:03f}\txs corr: {1:03f}'.format(score, corr))
 
+    ut.avg_rank_accuracy(df_res).plot(ax=axes[4,0], title='avg pred rank accuracy')
+    ut.get_cum_perforance(q).plot(ax=axes[4,1], title='continuously invested performance')
+    
     return clf, df_res, score, pred
