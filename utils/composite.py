@@ -1,5 +1,3 @@
-from pprint import pprint
-
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -32,15 +30,8 @@ def explore_series(px, px_ca, px_us, tar):
     print('int: {0:03f}\tcoef: {1:03f}\tr2 score: {2:03f}\txs corr: {3:03f}'.format(clf.intercept_, clf.coef_[0], score, corr))
 
 
-def build_model(clf, df):
+def model_empirics(clf, df, pred):
     
-    clf.fit(df[[c for c in df.columns if c != 'tar']], df['tar'])
-    pprint(clf.grid_scores_)
-    print('\n')
-    pprint(clf.best_estimator_)
-    
-    pred = pd.Series(clf.predict(df[[c for c in df.columns if c != 'tar']]), 
-                     index=df.index, name='pred')
     sns.jointplot(pred, df['tar'], kind='reg')
 
     score = clf.score(df[[c for c in df.columns if c != 'tar']], df['tar'])
@@ -55,7 +46,7 @@ def build_model(clf, df):
     avg_tar = df_res['tar'].unstack().mean(axis=1)
     df_res['avg_tar'] = pd.DataFrame({c: avg_tar for c in df_res.index.levels[1]}).stack()
 
-    fig, axes = plt.subplots(ncols=2, nrows=5, figsize=(FIG_WIDTH*2, FIG_HEIGHT*5))
+    fig, axes = plt.subplots(ncols=2, nrows=6, figsize=(FIG_WIDTH*2, FIG_HEIGHT*6))
     ut.gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=False).plot(kind='bar', ax=axes[0,0], title='tar vs pred (xs)')
     ut.gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=True).plot(kind='bar', ax=axes[1,0], title='tar vs pred (ts)')
     ut.gen_quintile_flat(df_res, 'avg_tar', 'pred', agg='mean', ts=True).plot(kind='bar', ax=axes[2,0], title='xs avg tar vs pred (ts)')
@@ -63,7 +54,7 @@ def build_model(clf, df):
     ut.gen_quintile_flat(df_res, 'tar', 'err2', agg='sum', ts=True).plot(kind='bar', ax=axes[1,1], title='tar vs err2 (ts)')
     ut.gen_quintile_flat(df_res, 'avg_tar', 'err2', agg='sum', ts=True).plot(kind='bar', ax=axes[2,1], title='xs avg tar vs err2 (ts)')
     ut.gen_quintile_ts(df_res, 'pred', 'pred', agg='mean').plot(ax=axes[3,0], title='avg pred over time')
-    ut.gen_quintile_ts(df_res, 'tar', 'tar', agg='mean').plot(ax=axes[3,1], title='avg tar over time')
+    ut.gen_quintile_ts(df_res, 'tar', 'tar', agg='mean').plot(ax=axes[3,1], title='avg tar over time') 
     
     q = ut.gen_quintile_ts(df_res, 'pred', 'ret', agg='mean')
     q['mkt'] = ql.load_returns('states').ix[:,0]
@@ -74,4 +65,6 @@ def build_model(clf, df):
     ut.avg_rank_accuracy(df_res).plot(ax=axes[4,0], title='avg pred rank accuracy')
     ut.get_cum_perforance(q).plot(ax=axes[4,1], title='continuously invested performance')
     
-    return clf, df_res, score, pred
+    df_res['tar'].unstack().corrwith(df_res['pred'].unstack(), axis=1).plot(ax=axes[5,0], ylim=(-1,1), title='xs tar-pred corr over time')
+
+    return df_res, score
