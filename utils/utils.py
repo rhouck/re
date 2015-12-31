@@ -157,11 +157,6 @@ def capped_transformation(func, px, px_ca, px_us):
     
     return px, px_ca, px_us
 
-def momentum(df, per=12):
-    df = df.pct_change()
-    #return pd.rolling_mean(df, window=per).dropna()
-    return pd.ewma(df, halflife=per, min_periods=per).dropna(how='all')
-
 
 ## general empirics
 # 

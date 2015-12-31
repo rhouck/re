@@ -1,7 +1,10 @@
+import datetime
+
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn import linear_model as lm
+from sklearn.metrics import r2_score
 
 from utils import utils as ut
 from utils import quandl as ql
@@ -30,11 +33,32 @@ def explore_series(px, px_ca, px_us, tar):
     print('int: {0:03f}\tcoef: {1:03f}\tr2 score: {2:03f}\txs corr: {3:03f}'.format(clf.intercept_, clf.coef_[0], score, corr))
 
 
+def rolling_fit(clf, df):
+    split_date = df.ix[0].name[0] + datetime.timedelta(days=30*12*3)
+    end_date = df.ix[-1].name[0]
+    
+    preds = []
+    while split_date < end_date:
+        print(split_date)
+        train = df[:split_date]
+        test = df[split_date:]
+        clf.fit(train[[c for c in train.columns if c != 'tar']], train['tar'])
+        pred = pd.Series(clf.predict(test[[c for c in train.columns if c != 'tar']]), 
+                         index=test.index, name='pred')
+        preds.append(pred)
+        
+        split_date += datetime.timedelta(days=30*6)
+        if split_date >= end_date:
+            break
+    
+    return pd.concat(preds)
+
+
 def model_empirics(clf, df, pred):
     
     sns.jointplot(pred, df['tar'], kind='reg')
 
-    score = clf.score(df[[c for c in df.columns if c != 'tar']], df['tar'])
+    score = r2_score(df['tar'], pred)
     corr = ut.get_xs_corr(pred, df['tar'])
     print('\n')
     print('r2: {0:03f}\txs corr: {1:03f}'.format(score, corr))
@@ -47,14 +71,22 @@ def model_empirics(clf, df, pred):
     df_res['avg_tar'] = pd.DataFrame({c: avg_tar for c in df_res.index.levels[1]}).stack()
 
     fig, axes = plt.subplots(ncols=2, nrows=6, figsize=(FIG_WIDTH*2, FIG_HEIGHT*6))
-    ut.gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=False).plot(kind='bar', ax=axes[0,0], title='tar vs pred (xs)')
-    ut.gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=True).plot(kind='bar', ax=axes[1,0], title='tar vs pred (ts)')
-    ut.gen_quintile_flat(df_res, 'avg_tar', 'pred', agg='mean', ts=True).plot(kind='bar', ax=axes[2,0], title='xs avg tar vs pred (ts)')
-    ut.gen_quintile_flat(df_res, 'tar', 'err2', agg='sum', ts=False).plot(kind='bar', ax=axes[0,1], title='tar vs err2 (xs)')
-    ut.gen_quintile_flat(df_res, 'tar', 'err2', agg='sum', ts=True).plot(kind='bar', ax=axes[1,1], title='tar vs err2 (ts)')
-    ut.gen_quintile_flat(df_res, 'avg_tar', 'err2', agg='sum', ts=True).plot(kind='bar', ax=axes[2,1], title='xs avg tar vs err2 (ts)')
-    ut.gen_quintile_ts(df_res, 'pred', 'pred', agg='mean').plot(ax=axes[3,0], title='avg pred over time')
-    ut.gen_quintile_ts(df_res, 'tar', 'tar', agg='mean').plot(ax=axes[3,1], title='avg tar over time') 
+    (ut.gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=False)
+        .plot(kind='bar', ax=axes[0,0], title='tar vs pred (xs)'))
+    (ut.gen_quintile_flat(df_res, 'tar', 'pred', agg='mean', ts=True)
+        .plot(kind='bar', ax=axes[1,0], title='tar vs pred (ts)'))
+    (ut.gen_quintile_flat(df_res, 'avg_tar', 'pred', agg='mean', ts=True)
+        .plot(kind='bar', ax=axes[2,0], title='xs avg tar vs pred (ts)'))
+    (ut.gen_quintile_flat(df_res, 'tar', 'err2', agg='sum', ts=False)
+        .plot(kind='bar', ax=axes[0,1], title='tar vs err2 (xs)'))
+    (ut.gen_quintile_flat(df_res, 'tar', 'err2', agg='sum', ts=True)
+        .plot(kind='bar', ax=axes[1,1], title='tar vs err2 (ts)'))
+    (ut.gen_quintile_flat(df_res, 'avg_tar', 'err2', agg='sum', ts=True)
+        .plot(kind='bar', ax=axes[2,1], title='xs avg tar vs err2 (ts)'))
+    (ut.gen_quintile_ts(df_res, 'pred', 'pred', agg='mean')
+        .plot(ax=axes[3,0], title='avg pred over time'))
+    (ut.gen_quintile_ts(df_res, 'tar', 'tar', agg='mean')
+        .plot(ax=axes[3,1], title='avg tar over time'))
     
     q = ut.gen_quintile_ts(df_res, 'pred', 'ret', agg='mean')
     q['mkt'] = ql.load_returns('states').ix[:,0]
@@ -67,4 +99,4 @@ def model_empirics(clf, df, pred):
     
     df_res['tar'].unstack().corrwith(df_res['pred'].unstack(), axis=1).plot(ax=axes[5,0], ylim=(-1,1), title='xs tar-pred corr over time')
 
-    return df_res, score
+    return df_res
