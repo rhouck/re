@@ -36,21 +36,21 @@ def explore_series(px, px_ca, px_us, tar):
 def rolling_fit(clf, df):
     split_date = df.ix[0].name[0] + datetime.timedelta(days=30*12*3)
     end_date = df.ix[-1].name[0]
-    
+    inc = datetime.timedelta(days=30*6)
     preds = []
     while split_date < end_date:
         print(split_date)
         train = df[:split_date]
-        test = df[split_date:]
+        test = df[split_date:(split_date + inc)]
         clf.fit(train[[c for c in train.columns if c != 'tar']], train['tar'])
         pred = pd.Series(clf.predict(test[[c for c in train.columns if c != 'tar']]), 
                          index=test.index, name='pred')
         preds.append(pred)
         
-        split_date += datetime.timedelta(days=30*6)
+        split_date += inc 
         if split_date >= end_date:
             break
-    
+        
     return pd.concat(preds)
 
 
