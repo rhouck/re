@@ -72,16 +72,21 @@ def xs_z_score_winsorize(df, threshold=3):
 
 def ts_score(df, panel=True):
     
-    def ts(df):
-        return  (df - df.mean()) / df.std()
+    def ts(df, panel):
+        hl = TS_HALFLIFE
+        if panel:
+             hl = hl * df.index.levels[1].shape[0]
+        m = pd.ewma(df, halflife=hl)
+        std = pd.ewmstd(df, halflife=hl)
+        return (df - m) / std
     
     if panel:
-        return ts(df)
+        return ts(df, panel)
     else:
         cols = df.columns
         for c in cols:
             d = df[c].unstack()
-            d = ts(d)
+            d = ts(d, panel)
             df.loc[:,c] = d.stack()
         return df
 

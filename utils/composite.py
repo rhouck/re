@@ -64,7 +64,6 @@ def model_empirics(clf, df, pred):
 
     score = r2_score(df['tar'], pred)
     corr = ut.get_xs_corr(pred, df['tar'])
-    print('\n')
     print('r2: {0:03f}\txs corr: {1:03f}'.format(score, corr))
 
     ret = ql.load_returns().stack().ix[df.index]    

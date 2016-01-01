@@ -1,6 +1,7 @@
 ## model settings
 #
 RET_PER = 24
+TS_HALFLIFE = 36
 TARGET_SERIES = 'A'
 TARGET_INDICATOR = 'cities'
 
