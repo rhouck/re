@@ -39,9 +39,13 @@ def rolling_fit(clf, df):
     inc = datetime.timedelta(days=30*6)
     preds = []
     while split_date < end_date:
-        print(split_date)
-        train = df[:split_date]
-        test = df[split_date:(split_date + inc)]
+        #print(split_date)
+        train = df[:split_date].copy(deep=True)
+        test = df[split_date:(split_date + inc)].copy(deep=True)
+        print("{0}\t{1}\t{2}\t{3}".format(train.iloc[0].name[0],
+                                          train.iloc[-1].name[0],
+                                          test.iloc[0].name[0],
+                                          test.iloc[-1].name[0]))
         clf.fit(train[[c for c in train.columns if c != 'tar']], train['tar'])
         pred = pd.Series(clf.predict(test[[c for c in train.columns if c != 'tar']]), 
                          index=test.index, name='pred')
