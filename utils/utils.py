@@ -74,10 +74,12 @@ def ts_score(df, panel=True):
     
     def ts(df, panel):
         hl = TS_HALFLIFE
+        min_per = 12
         if panel:
              hl = hl * df.index.levels[1].shape[0]
-        m = pd.ewma(df, halflife=hl)
-        std = pd.ewmstd(df, halflife=hl)
+             min_per = min_per * df.index.levels[1].shape[0]
+        m = pd.ewma(df, halflife=hl, min_periods=min_per)
+        std = pd.ewmstd(df, halflife=hl, min_periods=min_per)
         return (df - m) / std
     
     if panel:

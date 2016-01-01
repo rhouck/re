@@ -41,7 +41,8 @@ def rolling_fit(clf, df):
     while split_date < end_date:
         #print(split_date)
         train = df[:split_date].copy(deep=True)
-        test = df[split_date:(split_date + inc)].copy(deep=True)
+        test = (df[(split_date + datetime.timedelta(days=1)):(split_date + inc)]
+                .copy(deep=True))
         print("{0}\t{1}\t{2}\t{3}".format(train.iloc[0].name[0],
                                           train.iloc[-1].name[0],
                                           test.iloc[0].name[0],
@@ -98,8 +99,10 @@ def model_empirics(clf, df, pred):
     print(ut.get_sharpe_ratio(q))
 
     ut.avg_rank_accuracy(df_res).plot(ax=axes[4,0], title='avg pred rank accuracy')
-    ut.get_cum_perforance(q).plot(ax=axes[4,1], title='continuously invested performance')
+    quint_cum_perf = ut.get_cum_perforance(q)
+    quint_cum_perf.plot(ax=axes[4,1], title='continuously invested performance')
     
-    df_res['tar'].unstack().corrwith(df_res['pred'].unstack(), axis=1).plot(ax=axes[5,0], ylim=(-1,1), title='xs tar-pred corr over time')
+    xs_corr = df_res['tar'].unstack().corrwith(df_res['pred'].unstack(), axis=1)
+    xs_corr.plot(ax=axes[5,0], ylim=(-1,1), title='xs tar-pred corr over time')
 
-    return df_res
+    return quint_cum_perf, xs_corr
