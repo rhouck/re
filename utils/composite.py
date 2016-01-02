@@ -21,7 +21,6 @@ def explore_series(px, px_ca, px_us, tar):
      .plot(kind='bar', title='lead lag corr', ax=axes[1,0]))#.axvline(0, linestyle='--', color='r'))
 
     df = ut.stack_and_align([px, tar], cols=('sig','tar')).dropna()
-    df = ut.ts_score(df)
     sns.distplot(df['sig'], ax=axes[2,0]).set_title('sig dist')
     sns.regplot(df['sig'], df['tar'], ax=axes[2,1]).set_title('sig vs tar')
 
@@ -67,7 +66,8 @@ def model_empirics(clf, df, pred):
     corr = ut.get_xs_corr(pred, df['tar'])
     print('r2: {0:03f}\txs corr: {1:03f}'.format(score, corr))
 
-    ret = ql.load_returns().stack().ix[df.index]    
+    ret = ql.load_returns().stack().ix[df.index].unstack()
+    ret = ut.xs_winsorize(ret).stack()    
     df_res = ut.stack_and_align([df['tar'], pred, ret], cols=('tar', 'pred', 'ret'))
     df_res['err'] = df_res['tar'] - df_res['pred']
     df_res['err2'] = df_res['err'].map(lambda x: x**2)
@@ -105,4 +105,4 @@ def model_empirics(clf, df, pred):
     xs_corr = df_res['tar'].unstack().corrwith(df_res['pred'].unstack(), axis=1)
     xs_corr.plot(ax=axes[5,0], ylim=(-1,1), title='xs tar-pred corr over time')
 
-    return quint_cum_perf, xs_corr
+    return df_res, quint_cum_perf, xs_corr

@@ -50,24 +50,14 @@ def get_row_percentile(s, ts=False):
 ## ts transformations
 #
 
-
-def xs_z_score_winsorize(df, threshold=3):
-    m = df.mean(axis=1)
-    std = df.std(axis=1)
-    
-    limmit = m + std * threshold
-    limmit = pd.DataFrame(np.repeat(np.array([limmit.values]).T, df.shape[1], axis=1), 
-                         index=df.index, 
-                         columns=df.columns)
-    df = pd.concat([df.stack(), limmit.stack()], axis=1).min(axis=1).unstack()
-    
-    limmit = m - std * threshold
-    limmit = pd.DataFrame(np.repeat(np.array([limmit.values]).T, df.shape[1], axis=1), 
-                         index=df.index, 
-                         columns=df.columns)
-    df = pd.concat([df.stack(), limmit.stack()], axis=1).max(axis=1).unstack()
-
-    return df
+def xs_winsorize(df, quantile=.9, scale=1.5):
+    ext = df.abs().quantile(quantile, axis=1) * scale
+    ext = pd.DataFrame(np.repeat(np.array([ext.values]).T, df.shape[1], axis=1), 
+                       index=df.index, 
+                       columns=df.columns)
+    diff = df.abs() - ext
+    exceeds_map = diff.applymap(lambda x: True if x > 0 else False)
+    return df.mask(exceeds_map, np.nan)
 
 
 def ts_score(df, panel=True):
