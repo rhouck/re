@@ -1,8 +1,8 @@
 ## model settings
 #
-RET_PER = 24
+RET_PER = 18
 TS_HALFLIFE = 36
-TARGET_SERIES = 'A'
+TARGET_SERIES = 'MVSF'
 TARGET_INDICATOR = 'cities'
 
 ## plotting settings

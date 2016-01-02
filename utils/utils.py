@@ -50,6 +50,11 @@ def get_row_percentile(s, ts=False):
 ## ts transformations
 #
 
+def momentum(df, per=12):
+    df = df.div(df.shift(per))
+    #return pd.rolling_mean(df, window=per).dropna()
+    return pd.ewma(df, halflife=6, min_periods=3).dropna(how='all')
+
 
 def xs_rank_features(df, skip=('long', 'med', 'short')):
     df = df.copy(deep=True)
@@ -157,9 +162,10 @@ def capped_transformation(func, px, px_ca, px_us):
     px_ca = func(px_ca)
     px_us = func(px_us)
     
-    px_us = px_us.map(lambda x: 3 if x > 3 else x)
-    px_ca = px_ca.map(lambda x: 3 if x > 3 else x)
-    px = px.applymap(lambda x: 3 if x > 3 else x)
+    # px_us = px_us.map(lambda x: 3 if x > 3 else x)
+    # px_ca = px_ca.map(lambda x: 3 if x > 3 else x)
+    # px = px.applymap(lambda x: 3 if x > 3 else x)
+    px = xs_winsorize(px, quantile=.9, scale=1.5)
     
     return px, px_ca, px_us
 
