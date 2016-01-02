@@ -32,7 +32,8 @@ def load_pred_for_map():
     pred.Date = pd.to_datetime(pred.Date)
     pred = pred.set_index(['Date', 'code'])['pred']
 
-    df = ut.stack_and_align([px, pred], cols=['px', 'pred']).dropna()
+    df = ut.stack_and_align([px, pred], cols=['px', 'pred'])
+    df = df.dropna()
     df.index.levels[0].name = 'date'
     df.index.levels[1].name = 'code'
 

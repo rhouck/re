@@ -50,6 +50,15 @@ def get_row_percentile(s, ts=False):
 ## ts transformations
 #
 
+
+def xs_rank_features(df, skip=('long', 'med', 'short')):
+    df = df.copy(deep=True)
+    for c in df.columns:
+        if c not in skip:
+            df[c] = get_row_percentile(df[c])
+    return df
+
+
 def xs_winsorize(df, quantile=.9, scale=1.5):
     ext = df.abs().quantile(quantile, axis=1) * scale
     ext = pd.DataFrame(np.repeat(np.array([ext.values]).T, df.shape[1], axis=1), 

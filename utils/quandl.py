@@ -182,9 +182,6 @@ def load_series(series):
     px_ca.name = 'ca'
     px = load_quandl_data(TARGET_INDICATOR, series)
 
-    px = (px
-          #.fillna(method='bfill', limit=3)
-          .fillna(method='ffill', limit=3)
-          .dropna(axis=1))
+    px = (px.fillna(method='ffill', limit=3))
     
     return px, px_ca, px_us

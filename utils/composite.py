@@ -33,7 +33,7 @@ def explore_series(px, px_ca, px_us, tar):
 
 
 def rolling_fit(clf, df):
-    split_date = df.ix[0].name[0] + datetime.timedelta(days=30*12*3)
+    split_date = df.ix[0].name[0] + datetime.timedelta(days=30*12*1)
     end_date = df.ix[-1].name[0]
     inc = datetime.timedelta(days=30*6)
     preds = []
